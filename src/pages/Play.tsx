@@ -1,21 +1,14 @@
-import { useParams } from "react-router-dom";
-import { GameHost } from "@modules/session/GameHost";
-import { payoutConfig } from "@lib/payouts";
+import React from "react";
 
 export default function Play() {
-  const params = useParams();
-  const gameId = (params.gameId as string | undefined) ?? "rps";
   return (
-    <main className="max-w-3xl mx-auto p-6">
-      <GameHost
-        gameId={gameId}
-        players={2}
-        buyIn={1}
-        payoutConfig={payoutConfig}
-        onComplete={(r) => {
-          alert(`Result: ${r.outcome} | You get: ${r.payout.you}`);
-        }}
-      />
-    </main>
+    <div className="min-h-screen flex items-center justify-center bg-[#060b1a] text-white">
+      <div className="rounded-2xl border border-white/10 p-8 bg-white/[0.03]">
+        <h1 className="text-2xl font-bold mb-2">Game session</h1>
+        <p className="text-white/70">
+          Opponent connected. (Siia tuleb päris mäng / RPS / jne.)
+        </p>
+      </div>
+    </div>
   );
 }

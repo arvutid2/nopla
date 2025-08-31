@@ -1,11 +1,18 @@
 <!doctype html>
-<html lang="et">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bolt Demo Games</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" href="/favicon.ico" />
+    <title>Astra 1v1</title>
+
+    <!-- Tailwind CDN (dev – toob kohe ilusa välimuse) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { theme: { extend: {} } };
+    </script>
   </head>
-  <body>
+  <body class="bg-[#060b1a] text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
