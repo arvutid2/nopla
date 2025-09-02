@@ -1,3 +1,4 @@
+// vite.config.ts
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
@@ -14,6 +15,6 @@ export default defineConfig({
       '@pages': fileURLToPath(new URL('./src/pages', import.meta.url)),
     },
   },
-  // Kui deploy’d GitHub Pages’i repo alamteele, lisa nt:
-  // base: '/bolt-demo-games2/'
+  base: '/nopla/',        // ← oluline GitHub Pages’i alamtee jaoks
+  build: { outDir: 'docs', emptyOutDir: true },
 })

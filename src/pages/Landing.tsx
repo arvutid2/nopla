@@ -58,10 +58,7 @@ export default function Landing() {
   }>(null);
   const [sessionKey, setSessionKey] = useState(0);
 
-  // Your Stats (walleti järgi)
   const [stats, setStats] = useState<StatRow>(null);
-
-  // Site-wide mõõdikud
   const [playersOnline, setPlayersOnline] = useState<number>(0);
   const [duelsToday, setDuelsToday] = useState<number>(0);
   const [moneyWon, setMoneyWon] = useState<number>(0);
@@ -81,7 +78,6 @@ export default function Landing() {
     refreshStats();
     refreshSiteMetrics();
 
-    // presence – online loendur
     const ch = supabase?.channel("presence-online", { config: { presence: { key: userId } } });
     ch?.on("presence", { event: "sync" }, () => {
       const state = ch?.presenceState() || {};
@@ -98,7 +94,6 @@ export default function Landing() {
     };
   }, []);
 
-  /* -------- Your Stats (wallet) -------- */
   async function refreshStats() {
     try {
       const wid = wallet.getId();
@@ -106,193 +101,78 @@ export default function Landing() {
         setStats(null);
         return;
       }
+      const { data } = await supabase
+        ?.from("matches")
+        .select("buy_in,outcome,host_wallet,guest_wallet,winner_wallet")
+        .or(`host_wallet.eq.${wid},guest_wallet.eq.${wid}`)!;
+      if (Array.isArray(data)) {
+        let games = 0,
+          wins = 0,
+          losses = 0,
+          draws = 0;
+        let total_wagered = 0,
+          total_won = 0,
+          total_lost = 0,
+          biggest_win = 0,
+          biggest_loss = 0;
 
-      // 1) Proovi v_wallet_stats
-      try {
-        const { data } = await supabase
-          ?.from("v_wallet_stats")
-          .select("*")
-          .eq("wallet_id", wid)
-          .maybeSingle()!;
-        if (data) {
-          const games = Number((data as any).games ?? (data as any).games_played ?? 0);
-          const wins = Number((data as any).wins ?? 0);
-          const losses = Number((data as any).losses ?? 0);
-          const draws = Number((data as any).draws ?? 0);
-          const total_wagered = Number((data as any).total_wagered ?? 0);
-          const total_won = Number((data as any).total_won ?? 0);
-          const total_lost = Number((data as any).total_lost ?? 0);
-          const biggest_win = Number((data as any).biggest_win ?? 0);
-          const biggest_loss = Number((data as any).biggest_loss ?? 0);
-          const winrate = games > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
-          setStats({
-            games_played: games,
-            wins,
-            losses,
-            draws,
-            total_wagered,
-            total_won,
-            total_lost,
-            biggest_win,
-            biggest_loss,
-            winrate,
-          });
-          return;
-        }
-      } catch {}
-
-      // 2) Proovi wallet_stats
-      try {
-        const { data } = await supabase
-          ?.from("wallet_stats")
-          .select("*")
-          .eq("wallet_id", wid)
-          .maybeSingle()!;
-        if (data) {
-          const games = Number((data as any).games ?? (data as any).games_played ?? 0);
-          const wins = Number((data as any).wins ?? 0);
-          const losses = Number((data as any).losses ?? 0);
-          const draws = Number((data as any).draws ?? 0);
-          const total_wagered = Number((data as any).total_wagered ?? 0);
-          const total_won = Number((data as any).total_won ?? 0);
-          const total_lost = Number((data as any).total_lost ?? 0);
-          const biggest_win = Number((data as any).biggest_win ?? 0);
-          const biggest_loss = Number((data as any).biggest_loss ?? 0);
-          const winrate = games > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
-          setStats({
-            games_played: games,
-            wins,
-            losses,
-            draws,
-            total_wagered,
-            total_won,
-            total_lost,
-            biggest_win,
-            biggest_loss,
-            winrate,
-          });
-          return;
-        }
-      } catch {}
-
-      // 3) Fallback: arvuta matches-ist (host/guest)
-      {
-        const { data } = await supabase
-          ?.from("matches")
-          .select("buy_in,outcome,host_wallet,guest_wallet,winner_wallet")
-          .or(`host_wallet.eq.${wid},guest_wallet.eq.${wid}`)!;
-
-        if (Array.isArray(data)) {
-          let games = 0,
-            wins = 0,
-            losses = 0,
-            draws = 0;
-          let total_wagered = 0,
-            total_won = 0,
-            total_lost = 0;
-          let biggest_win = 0,
-            biggest_loss = 0;
-
-          for (const m of data) {
-            const b = Number((m as any).buy_in || 0);
-            games += 1;
-            total_wagered += b;
-            if ((m as any).outcome === "draw") {
-              draws += 1;
+        for (const m of data) {
+          const b = Number((m as any).buy_in || 0);
+          games += 1;
+          total_wagered += b;
+          if ((m as any).outcome === "draw") {
+            draws += 1;
+          } else {
+            const iWon = (m as any).winner_wallet === wid;
+            if (iWon) {
+              wins += 1;
+              const prizeNet = Math.floor(2 * b * 0.9) - b;
+              total_won += Math.floor(2 * b * 0.9);
+              biggest_win = Math.max(biggest_win, prizeNet);
             } else {
-              const iWon = (m as any).winner_wallet === wid;
-              if (iWon) {
-                wins += 1;
-                const prizeNet = Math.floor(2 * b * 0.9) - b; // net +0.8B
-                total_won += Math.floor(2 * b * 0.9);
-                biggest_win = Math.max(biggest_win, prizeNet);
-              } else {
-                losses += 1;
-                total_lost += b;
-                biggest_loss = Math.max(biggest_loss, b);
-              }
+              losses += 1;
+              total_lost += b;
+              biggest_loss = Math.max(biggest_loss, b);
             }
           }
-          const winrate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
-          setStats({
-            games_played: games,
-            wins,
-            losses,
-            draws,
-            total_wagered,
-            total_won,
-            total_lost,
-            biggest_win,
-            biggest_loss,
-            winrate,
-          });
-          return;
         }
+        const winrate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
+        setStats({
+          games_played: games,
+          wins,
+          losses,
+          draws,
+          total_wagered,
+          total_won,
+          total_lost,
+          biggest_win,
+          biggest_loss,
+          winrate,
+        });
+        return;
       }
-
       setStats(null);
     } catch {
       setStats(null);
     }
   }
 
-  /* -------- site metrics (Money won / Duels today) -------- */
   async function refreshSiteMetrics() {
     if (!supabase) return;
-
     let money = 0;
     let duels = 0;
-
-    // 1) Proovi vaadet
     try {
-      const { data } = await supabase?.from("v_site_metrics").select("*").maybeSingle()!;
-      if (data) {
-        money = Number((data as any).money_won ?? 0);
-        duels = Number((data as any).duels_today ?? 0);
+      const { data, error } = await supabase.from("matches").select("buy_in,outcome");
+      if (!error && Array.isArray(data)) {
+        const sum = data.reduce((acc: number, m: any) => {
+          if (m?.outcome === "draw") return acc;
+          const b = Number(m?.buy_in || 0);
+          return acc + 2 * b * 0.9;
+        }, 0);
+        money = Math.round(sum);
+        duels = data.length;
       }
     } catch {}
-
-    // 2) RPC fallback
-    if (!money) {
-      try {
-        const { data: m } = await supabase!.rpc("site_money_won");
-        if (typeof m === "number") money = m;
-      } catch {}
-    }
-    if (!duels) {
-      try {
-        const { data: d } = await supabase!.rpc("site_duels_today");
-        if (typeof d === "number") duels = d;
-      } catch {}
-    }
-
-    // 3) Otse tabelitest fallback
-    if (!duels) {
-      try {
-        const now = new Date();
-        const start = new Date(now);
-        start.setHours(0, 0, 0, 0);
-        const { count } = await supabase
-          .from("matches")
-          .select("id", { count: "exact", head: true })
-          .gte("created_at", start.toISOString());
-        duels = count ?? duels;
-      } catch {}
-    }
-    if (!money) {
-      try {
-        const { data, error } = await supabase.from("matches").select("buy_in,outcome");
-        if (!error && Array.isArray(data)) {
-          const sum = data.reduce((acc: number, m: any) => {
-            if (m?.outcome === "draw") return acc;
-            const b = Number(m?.buy_in || 0);
-            return acc + 2 * b * 0.9;
-          }, 0);
-          money = Math.round(sum);
-        }
-      } catch {}
-    }
-
     setMoneyWon(money || 0);
     setDuelsToday(duels || 0);
   }
@@ -355,8 +235,6 @@ export default function Landing() {
                 Stake, play, win. Real-time match-making with provably fair mechanics.
                 No bots — just you and your opponent.
               </motion.p>
-
-              {/* hero-st eemaldatud: Find 1v1 Match nupp + "players online · duels today" tekst */}
             </div>
 
             <div className="relative">
@@ -439,7 +317,7 @@ export default function Landing() {
             opponentId: payload.opponentId,
             opponentName: payload.opponentName,
           });
-          setSessionKey((k) => k + 1); // remount trigger
+          setSessionKey((k) => k + 1);
           setOverlayOpen(true);
         }}
       />
@@ -459,19 +337,14 @@ export default function Landing() {
           const myWin = matchResult === "you_win";
           const hostWallet = pvp?.role === "host" ? wid : pvp?.opponentId;
           const guestWallet = pvp?.role === "guest" ? wid : pvp?.opponentId;
-
-          // Idempotency key: kasuta matchmakingu matchId’d; kui puudub, loo lokaalne
           const clientMatchId =
             pvp?.matchId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
           const outcome =
             pvp?.role === "host"
               ? (myWin ? "host" : "guest")
               : (myWin ? "guest" : "host");
 
           let wrote = false;
-
-          // 1) RPC (idempotent serveris)
           try {
             if (hostWallet && guestWallet) {
               const { error } = await supabase
@@ -489,11 +362,8 @@ export default function Landing() {
                 })!;
               if (!error) wrote = true;
             }
-          } catch {
-            // fallback all
-          }
+          } catch {}
 
-          // 2) Fallback: UPSERT wallets + UPSERT matches(client_match_id)
           if (!wrote && hostWallet && guestWallet) {
             try {
               await supabase!.from("wallets").upsert(
@@ -512,15 +382,14 @@ export default function Landing() {
                 { onConflict: "wallet_id" }
               );
 
-              const fee = outcome === "draw" ? 0 : Math.round(buyInRef.current * 2 * 0.1);
-              const winner_wallet =
-                outcome === "draw" ? null : outcome === "host" ? hostWallet : guestWallet;
+              const fee = Math.round(buyInRef.current * 2 * 0.1);
+              const winner_wallet = outcome === "host" ? hostWallet : guestWallet;
 
               await supabase!
                 .from("matches")
                 .upsert(
                   {
-                    client_match_id: clientMatchId, // idempotency key
+                    client_match_id: clientMatchId,
                     game: "rps",
                     buy_in: buyInRef.current,
                     host_wallet: hostWallet,
@@ -536,12 +405,9 @@ export default function Landing() {
             }
           }
 
-          // 3) värskenda paneeli
           await refreshStats();
           await refreshSiteMetrics();
           window.dispatchEvent(new CustomEvent("stats-refresh"));
-
-          // 4) puhasta meta
           setPvp(null);
         }}
       />
