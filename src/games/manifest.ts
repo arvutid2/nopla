@@ -1,31 +1,26 @@
-import type { GameMeta, GameModule } from "@games/GameTypes";
+import React from "react";
 
-export const gameManifest: Array<{
-  meta: GameMeta;
-  load: () => Promise<GameModule>;
-}> = [
-  {
-    meta: {
-      id: "rps",
-      name: "Rock-Paper-Scissors",
-      capabilities: { overlay: true, bestOf: true, drawRefund: true, ai: true, maxPlayers: 2 },
-      defaultSettings: { bestOf: 3, drawRefund: true }
-    },
-    load: () => import("@games/rps").then((m) => m as unknown as GameModule)
-  },
-  {
-    meta: {
-      id: "durak",
-      name: "Durak (stub)",
-      capabilities: { overlay: true, realtime: true, maxPlayers: 2 },
-      defaultSettings: { variant: "classic" }
-    },
-    load: () => import("@games/durak").then((m) => m as unknown as GameModule)
-  }
-];
+/** Võtme nimed peavad kattuma sellega, mida GameHost ette annab. */
+export type GameKey = "rps"; // lisa siia teisi mänge nt "ttt" jne
 
-export async function loadGame(gameId: string): Promise<GameModule> {
-  const item = gameManifest.find((g) => g.meta.id === gameId);
-  if (!item) throw new Error(`Unknown game: ${gameId}`);
-  return item.load();
+type Loader = () => Promise<{ default: React.ComponentType<any> }>;
+
+const registry: Record<GameKey, Loader> = {
+  // kui sinu RPS entry on teises failis, muuda rada (nt "./rps/OnlineRps")
+  rps: () => import("./rps").then(m => ({ default: m.default })),
+};
+
+/** Kui tahad saada kohe komponendi (ilma React.lazy): */
+export async function loadGame(key: GameKey) {
+  const loader = registry[key as GameKey];
+  if (!loader) throw new Error(`Unknown game key: ${key}`);
+  const mod = await loader();
+  return mod.default;
+}
+
+/** Kui GameHost eelistab lazy-komponenti: */
+export function lazyGame(key: GameKey) {
+  const loader = registry[key as GameKey];
+  if (!loader) throw new Error(`Unknown game key: ${key}`);
+  return React.lazy(loader);
 }

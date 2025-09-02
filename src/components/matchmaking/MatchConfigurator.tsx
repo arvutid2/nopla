@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+
+import { wallet } from '../../lib/wallet';
 import { Gamepad2 } from "lucide-react";
 
 function Pill(
@@ -49,7 +51,7 @@ export default function MatchConfigurator({ onStart }: { onStart: (p:{ buyIn:num
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Pill icon={Gamepad2} variant="accent" onClick={()=>onStart({ buyIn })}>Start Game</Pill>
+        <Pill icon={Gamepad2} variant="accent" onClick={async ()=>{ if(!wallet.isConnected()) await wallet.connect(); onStart({ buyIn }); }}>Start Game</Pill>
       </div>
     </div>
   );
